@@ -42,9 +42,9 @@ func (app *_appContext) installPlugin(url string) error {
 		cmd = exec.Command("git", "clone", url, installDir)
 	}
 	cmd.Stdin = os.Stdin
-	cmd.Stderr = os.Stderr
 	if app.verboseFlag {
 		cmd.Stdout = os.Stdout
+		cmd.Stderr = os.Stderr
 	}
 
 	submoduleFile := path.Join(installDir, ".gitmodules")
@@ -55,9 +55,9 @@ func (app *_appContext) installPlugin(url string) error {
 		}
 		cmd = exec.Command("git", "submodule", "update", "--init", "--recursive")
 		cmd.Stdin = os.Stdin
-		cmd.Stderr = os.Stderr
 		if app.verboseFlag {
 			cmd.Stdout = os.Stdout
+			cmd.Stderr = os.Stderr
 		}
 		if err := cmd.Run(); err != nil {
 			// cannot access to the git

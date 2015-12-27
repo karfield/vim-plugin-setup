@@ -3,6 +3,7 @@ package main
 import (
 	"bufio"
 	"bytes"
+	"crypto/md5"
 	"errors"
 	"fmt"
 	"io"
@@ -77,6 +78,9 @@ func (app *_appContext) setupVimPlugins(c *cli.Context) error {
 	app.oldVimrcBuf = bytes.NewBuffer([]byte{})
 	app.generatedVimrc = true
 
+	app.loadStates()
+	defer app.saveStates()
+
 	if dry.FileExists(app.vimrcPath) {
 		oldVimrc, err := os.Open(app.vimrcPath)
 		if err != nil {
@@ -132,9 +136,6 @@ func (app *_appContext) setupVimPlugins(c *cli.Context) error {
 		// save prebuilt-included vim configs except common.vimrc
 		for _confPath, _func := range _bindata {
 			fn := path.Base(_confPath)
-			if fn == "common.vimrc" {
-				continue
-			}
 			if asset, err := _func(); err != nil {
 				continue
 			} else {
@@ -230,11 +231,6 @@ func (app *_appContext) _writeVimSource(configfile string) {
 }
 
 func (app *_appContext) installPluginsByConfigs() error {
-	fl, err := dry.ListDirFiles(app.configDir)
-	if err != nil {
-		return err
-	}
-
 	commonRc := path.Join(app.configDir, "common.vimrc")
 	if dry.FileExists(commonRc) {
 		app._writeVimSource(commonRc)
@@ -245,11 +241,15 @@ func (app *_appContext) installPluginsByConfigs() error {
 		}
 	}
 
+	fl, err := dry.ListDirFiles(app.configDir)
+	if err != nil {
+		return err
+	}
+
 	for _, f := range fl {
-		if strings.HasPrefix(f, "_") {
+		if f == "common.vimrc" {
 			continue
 		}
-
 		configfile := path.Join(app.configDir, f)
 		err := app.installPluginByConfig(configfile)
 		if err != nil {
@@ -272,6 +272,7 @@ func (app *_appContext) flushVimrc() error {
 }
 
 func (app *_appContext) installPluginByConfig(configFilepath string) error {
+	configName := path.Base(configFilepath)
 	file, err := os.Open(configFilepath)
 	if err != nil {
 		return err
@@ -279,30 +280,33 @@ func (app *_appContext) installPluginByConfig(configFilepath string) error {
 	defer file.Close()
 
 	installScript := bytes.NewBufferString("")
-	plugins := []string{}
 
 	scanner := bufio.NewScanner(file)
 
 	scriptBegin := false
 	scriptEnd := false
 
-	app.info("parse vim config file:", path.Base(configFilepath))
+	app.info("parse vim config file:", configName)
 
 	for scanner.Scan() {
 		line := scanner.Text()
 		if _INSTALL_SCRIPT_BEGIN_PATTERN.MatchString(line) {
 			scriptBegin = true
 			scriptEnd = false
+			installScript.Reset()
 			continue
 		}
 		if _INSTALL_SCRIPT_END_PATTERN.MatchString(line) {
 			scriptBegin = false
 			scriptEnd = true
+			app.runScript(installScript, configName)
 			continue
 		}
 		if _INSTALL_PLUGIN_PATTERN.MatchString(line) {
 			ss := _INSTALL_PLUGIN_PATTERN.FindStringSubmatch(line)
-			plugins = append(plugins, ss[1])
+			plugin := ss[1]
+			app.printf("install plugin: %s\n", plugin)
+			app.installPlugin(plugin)
 			continue
 		}
 		if scriptBegin && !scriptEnd {
@@ -314,14 +318,13 @@ func (app *_appContext) installPluginByConfig(configFilepath string) error {
 		}
 	}
 
-	for _, plugin := range plugins {
-		fmt.Printf("install plugin: %s\n", plugin)
-		if err := app.installPlugin(plugin); err != nil {
-			return err
-		}
-	}
+	return nil
+}
 
+func (app *_appContext) runScript(installScript *bytes.Buffer, scriptName string) error {
+	defer installScript.Reset()
 	if installScript.Len() > 0 {
+
 		tmpfile, err := ioutil.TempFile(app.tmpDir, ".script-")
 		if err != nil {
 			return err
@@ -330,28 +333,33 @@ func (app *_appContext) installPluginByConfig(configFilepath string) error {
 		if _, err := io.WriteString(tmpfile, installScript.String()); err != nil {
 			return err
 		}
-		app.info("run script ...")
-		if app.enableDebug {
-			app.println(installScript.String())
-		}
-		cmd := exec.Command("/bin/bash", tmpfile.Name())
-		cmd.Env = append(os.Environ(),
-			"HOST_OS="+runtime.GOOS,
-			"HOST_ARCH="+runtime.GOARCH,
-			"VIMDIR="+path.Dir(app.bundleDir),
-			"VIMBUNDLEDIR="+app.bundleDir,
-		)
-		cmd.Stdin = os.Stdin
-		cmd.Stderr = os.Stderr
-		if app.verboseFlag {
-			cmd.Stdout = os.Stdout
-		}
-		if err := cmd.Run(); err != nil {
-			app.err("run script failed (%s)", err)
-		} else {
-			app.success("run script successfully")
+
+		cksum := fmt.Sprintf("%x", md5.Sum(installScript.Bytes()))
+		scriptName = scriptName + "@" + cksum
+		if !app.getBoolState("runflag:" + scriptName) {
+			app.info("run script ...")
+			if app.enableDebug {
+				app.println(installScript.String())
+			}
+			cmd := exec.Command("/bin/bash", tmpfile.Name())
+			cmd.Env = append(os.Environ(),
+				"HOST_OS="+runtime.GOOS,
+				"HOST_ARCH="+runtime.GOARCH,
+				"VIMDIR="+path.Dir(app.bundleDir),
+				"VIMBUNDLEDIR="+app.bundleDir,
+			)
+			cmd.Stdin = os.Stdin
+			if app.verboseFlag {
+				cmd.Stdout = os.Stdout
+				cmd.Stderr = os.Stderr
+			}
+			if err := cmd.Run(); err != nil {
+				app.err("run script failed (%s)", err)
+			} else {
+				app.success("run script successfully")
+			}
+			app.setState("runflag:"+scriptName, true)
 		}
 	}
-
 	return nil
 }

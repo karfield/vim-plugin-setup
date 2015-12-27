@@ -26,6 +26,7 @@ type _appContext struct {
 	generatedVimrc bool
 	verboseFlag    bool
 	enableDebug    bool
+	states         map[string]interface{}
 }
 
 var _app *_appContext
@@ -93,6 +94,7 @@ func checkBeforeRun(c *cli.Context) error {
 	}
 
 	_app = new(_appContext)
+	_app.states = make(map[string]interface{})
 	_app.verboseFlag = !c.GlobalBool("verbose")
 	_app.enableDebug = c.GlobalBool("debug")
 
