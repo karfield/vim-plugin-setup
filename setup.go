@@ -61,9 +61,9 @@ func setupVimPlugins(c *cli.Context) error {
 	autoloadDir := path.Join(vimDir, "autoload")
 	configDir := path.Join(vimDir, "configs")
 
-	os.MkdirAll(bundleDir)
-	os.MkdirAll(autoloadDir)
-	os.MkdirAll(configDir)
+	os.MkdirAll(bundleDir, 0755)
+	os.MkdirAll(autoloadDir, 0755)
+	os.MkdirAll(configDir, 0755)
 
 	vimrcBuf := bytes.NewBuffer([]byte{})
 	oldVimrcBuf := bytes.NewBuffer([]byte{})
