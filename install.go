@@ -23,15 +23,14 @@ func doInstallPlugin(c *cli.Context) {
 		color.Yellow("Missing vim plugin")
 		return
 	}
-	bundleDir := path.Join(c.GlobalString("vimdir"), "bundle")
 	for _, plugin := range c.Args() {
-		installPlugin(bundleDir, plugin)
+		_app.installPlugin(plugin)
 	}
 }
 
-func installPlugin(bundleDir, url string) error {
+func (app *_appContext) installPlugin(url string) error {
 	pluginName := path.Base(url)
-	installDir := path.Join(bundleDir, pluginName)
+	installDir := path.Join(app.bundleDir, pluginName)
 	if strings.HasPrefix(url, "github.com/") {
 		url = "https://" + url
 	}
@@ -45,9 +44,21 @@ func installPlugin(bundleDir, url string) error {
 	cmd.Stdin = os.Stdin
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
-	if err := cmd.Run(); err != nil {
-		// cannot access to the git
-		return err
+
+	submoduleFile := path.Join(installDir, ".gitmodules")
+	if dry.FileExists(submoduleFile) {
+		if err := cmd.Run(); err != nil {
+			// cannot access to the git
+			return err
+		}
+		cmd = exec.Command("git", "submodule", "update", "--init", "--recursive")
+		cmd.Stdin = os.Stdin
+		cmd.Stdout = os.Stdout
+		cmd.Stderr = os.Stderr
+		if err := cmd.Run(); err != nil {
+			// cannot access to the git
+			return err
+		}
 	}
 	return nil
 }

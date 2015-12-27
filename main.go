@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"errors"
 	"os"
 	"os/user"
@@ -12,6 +13,21 @@ import (
 	"github.com/ungerik/go-dry"
 )
 
+type _appContext struct {
+	cmdName        string
+	vimDir         string
+	vimrcPath      string
+	bundleDir      string
+	configDir      string
+	autoloadDir    string
+	tmpDir         string
+	vimrcBuf       *bytes.Buffer
+	oldVimrcBuf    *bytes.Buffer
+	generatedVimrc bool
+}
+
+var _app *_appContext
+
 func main() {
 	_user, err := user.Current()
 	if err != nil {
@@ -19,7 +35,7 @@ func main() {
 	}
 
 	app := cli.NewApp()
-	app.Name = "vimplugin"
+	app.Name = path.Base(os.Args[0])
 	app.Version = "1.0.0"
 	app.Usage = "simple util to help to install/manage vim plugins"
 	app.Flags = []cli.Flag{
@@ -44,7 +60,7 @@ func main() {
 	app.Run(os.Args)
 }
 
-var _PREREQUISITES = []string{"git", "vim", "wget"}
+var _PREREQUISITES = []string{"bash", "git", "vim", "wget"}
 
 func checkBeforeRun(c *cli.Context) error {
 	preqMissing := []string{}
@@ -66,5 +82,6 @@ func checkBeforeRun(c *cli.Context) error {
 		return errors.New("missing prequisites")
 	}
 
-	return setupVimPlugins(c)
+	_app = new(_appContext)
+	return _app.setupVimPlugins(c)
 }
