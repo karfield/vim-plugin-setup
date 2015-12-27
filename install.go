@@ -37,7 +37,7 @@ func installPlugin(bundleDir, url string) error {
 	}
 
 	var cmd *exec.Cmd
-	if dry.FileExists() {
+	if dry.FileExists(installDir) {
 		cmd = exec.Command("git", "pull")
 	} else {
 		cmd = exec.Command("git", "clone", url, installDir)
