@@ -24,6 +24,8 @@ type _appContext struct {
 	vimrcBuf       *bytes.Buffer
 	oldVimrcBuf    *bytes.Buffer
 	generatedVimrc bool
+	verboseFlag    bool
+	enableDebug    bool
 }
 
 var _app *_appContext
@@ -48,6 +50,14 @@ func main() {
 			Name:  "vimrc, rc",
 			Usage: "change .vimrc path",
 			Value: path.Join(_user.HomeDir, ".vimrc"),
+		},
+		cli.BoolFlag{
+			Name:  "verbose",
+			Usage: "print more console infomation",
+		},
+		cli.BoolFlag{
+			Name:  "debug",
+			Usage: "show debug information",
 		},
 	}
 	app.Before = checkBeforeRun
@@ -83,5 +93,8 @@ func checkBeforeRun(c *cli.Context) error {
 	}
 
 	_app = new(_appContext)
+	_app.verboseFlag = !c.GlobalBool("verbose")
+	_app.enableDebug = c.GlobalBool("debug")
+
 	return _app.setupVimPlugins(c)
 }

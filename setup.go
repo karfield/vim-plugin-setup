@@ -64,6 +64,8 @@ func (app *_appContext) setupVimPlugins(c *cli.Context) error {
 	app.tmpDir = path.Join(app.vimDir, "tmp")
 	app.cmdName = path.Base(os.Args[0])
 
+	app.info("start to check and setup vim ...")
+
 	os.MkdirAll(app.bundleDir, 0755)
 	os.MkdirAll(app.autoloadDir, 0755)
 	os.MkdirAll(app.configDir, 0755)
@@ -78,6 +80,7 @@ func (app *_appContext) setupVimPlugins(c *cli.Context) error {
 	if dry.FileExists(app.vimrcPath) {
 		oldVimrc, err := os.Open(app.vimrcPath)
 		if err != nil {
+			app.err("unable to open .vimrc (%s)", app.vimrcPath)
 			return err
 		}
 		defer oldVimrc.Close()
@@ -113,6 +116,7 @@ func (app *_appContext) setupVimPlugins(c *cli.Context) error {
 	pathogenVim := path.Join(app.autoloadDir, "pathogen.vim")
 	if !dry.FileExists(pathogenVim) {
 		if err := app.installPathogen(pathogenVim); err != nil {
+			app.fatal("Install pathogen.vim failed")
 			return err
 		}
 	}
@@ -134,6 +138,7 @@ func (app *_appContext) setupVimPlugins(c *cli.Context) error {
 			if asset, err := _func(); err != nil {
 				continue
 			} else {
+				app.info("save pre-configured vimrc file: ", fn)
 				saveConfig(path.Join(app.configDir, fn), asset.bytes, false, false)
 			}
 		}
@@ -144,6 +149,7 @@ func (app *_appContext) setupVimPlugins(c *cli.Context) error {
 			if asset, err := _func(); err != nil {
 				continue
 			} else {
+				app.info("save pre-configured vimrc file: ", path.Base(_confPath))
 				saveConfig(confPath, asset.bytes, false, false)
 			}
 		}
@@ -188,17 +194,20 @@ func saveConfig(_path string, _data interface{}, force, backup bool) bool {
 }
 
 func (app *_appContext) installPathogen(installPath string) error {
-	fmt.Println("Install pathogen")
+	app.info("Install pathogen ...")
 	if resp, err := http.Get(_PATHOGEN_VIM_URL); err != nil {
+		app.err("unable to download pathogen.vim. (error: %s)", err)
 		return err
 	} else {
 		defer resp.Body.Close()
 		pathogen, err := os.Create(installPath)
 		if err != nil {
+			app.err("unable to create(%s) for pathogen.vim", installPath)
 			return err
 		}
 		defer pathogen.Close()
 		if _, err := io.Copy(pathogen, resp.Body); err != nil {
+			app.err("unable to save pathogen.vim to %s", installPath)
 			return err
 		}
 	}
@@ -242,7 +251,7 @@ func (app *_appContext) installPluginsByConfigs() error {
 		}
 
 		configfile := path.Join(app.configDir, f)
-		err := app.installPuginByConfig(configfile)
+		err := app.installPluginByConfig(configfile)
 		if err != nil {
 			continue
 		}
@@ -250,8 +259,11 @@ func (app *_appContext) installPluginsByConfigs() error {
 		app._writeVimSource(configfile)
 	}
 
-	app.vimrcBuf.WriteString("\n")
+	return app.flushVimrc()
+}
 
+func (app *_appContext) flushVimrc() error {
+	app.vimrcBuf.WriteString("\n")
 	if saveConfig(app.vimrcPath, app.vimrcBuf, true, false) {
 		return nil
 	} else {
@@ -259,7 +271,7 @@ func (app *_appContext) installPluginsByConfigs() error {
 	}
 }
 
-func (app *_appContext) installPuginByConfig(configFilepath string) error {
+func (app *_appContext) installPluginByConfig(configFilepath string) error {
 	file, err := os.Open(configFilepath)
 	if err != nil {
 		return err
@@ -273,6 +285,8 @@ func (app *_appContext) installPuginByConfig(configFilepath string) error {
 
 	scriptBegin := false
 	scriptEnd := false
+
+	app.info("parse vim config file:", path.Base(configFilepath))
 
 	for scanner.Scan() {
 		line := scanner.Text()
@@ -301,7 +315,7 @@ func (app *_appContext) installPuginByConfig(configFilepath string) error {
 	}
 
 	for _, plugin := range plugins {
-		fmt.Printf("install plugin: [%s]\n", plugin)
+		fmt.Printf("install plugin: %s\n", plugin)
 		if err := app.installPlugin(plugin); err != nil {
 			return err
 		}
@@ -316,6 +330,10 @@ func (app *_appContext) installPuginByConfig(configFilepath string) error {
 		if _, err := io.WriteString(tmpfile, installScript.String()); err != nil {
 			return err
 		}
+		app.info("run script ...")
+		if app.enableDebug {
+			app.println(installScript.String())
+		}
 		cmd := exec.Command("/bin/bash", tmpfile.Name())
 		cmd.Env = append(os.Environ(),
 			"HOST_OS="+runtime.GOOS,
@@ -324,11 +342,14 @@ func (app *_appContext) installPuginByConfig(configFilepath string) error {
 			"VIMBUNDLEDIR="+app.bundleDir,
 		)
 		cmd.Stdin = os.Stdin
-		cmd.Stdout = os.Stdout
 		cmd.Stderr = os.Stderr
-		println(installScript.String())
+		if app.verboseFlag {
+			cmd.Stdout = os.Stdout
+		}
 		if err := cmd.Run(); err != nil {
-			return err
+			app.err("run script failed (%s)", err)
+		} else {
+			app.success("run script successfully")
 		}
 	}
 

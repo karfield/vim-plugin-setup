@@ -272,7 +272,7 @@ func vimConfigsYcmVimrc() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "vim-configs/ycm.vimrc", size: 694, mode: os.FileMode(436), modTime: time.Unix(1451236648, 0)}
+	info := bindataFileInfo{name: "vim-configs/ycm.vimrc", size: 694, mode: os.FileMode(436), modTime: time.Unix(1451237690, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
