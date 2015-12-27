@@ -3,14 +3,15 @@ package main
 import (
 	"bufio"
 	"bytes"
+	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
 	"net/http"
 	"os"
 	"os/exec"
+	"os/user"
 	"path"
-	"path/filepath"
 	"regexp"
 	"strings"
 	"text/template"
@@ -41,7 +42,6 @@ const _VIMRC_TEMPLATE = `
 `
 
 const _PATHOGEN_CONFIG = `
-
 " Config for github.com/tpope/vim-pathogen
 " 
 execute pathogen#infect()
@@ -69,15 +69,7 @@ func setupVimPlugins(c *cli.Context) error {
 	oldVimrcBuf := bytes.NewBuffer([]byte{})
 	generatedVimrc := true
 
-	if !dry.FileExists(vimrcPath) {
-		tpl, _ := template.New("vimrc").Parse(_VIMRC_TEMPLATE)
-		tpl.Execute(vimrcBuf, map[string]interface{}{
-			"CONFIGDIR":   configDir,
-			"BUNDLEDIR":   bundleDir,
-			"AUTOLOADDIR": autoloadDir,
-			"VIMRCFILE":   vimrcPath,
-		})
-	} else {
+	if dry.FileExists(vimrcPath) {
 		oldVimrc, err := os.Open(vimrcPath)
 		if err != nil {
 			return err
@@ -101,51 +93,81 @@ func setupVimPlugins(c *cli.Context) error {
 		generatedVimrc = generated
 	}
 
+	tpl, _ := template.New("vimrc").Parse(_VIMRC_TEMPLATE)
+	tpl.Execute(vimrcBuf, struct {
+		CMDNAME, CONFIGDIR, BUNDLEDIR, AUTOLOADDIR, VIMRCFILE string
+	}{
+		CMDNAME:     path.Base(os.Args[0]),
+		CONFIGDIR:   configDir,
+		BUNDLEDIR:   bundleDir,
+		AUTOLOADDIR: autoloadDir,
+		VIMRCFILE:   vimrcPath,
+	})
+
 	pathogenVim := path.Join(autoloadDir, "pathogen.vim")
 	if !dry.FileExists(pathogenVim) {
 		if err := installPathogen(pathogenVim); err != nil {
 			return err
 		}
-		vimrcBuf.WriteString(_PATHOGEN_CONFIG)
 	}
+
+	vimrcBuf.WriteString(_PATHOGEN_CONFIG)
 
 	if !generatedVimrc {
 		// save the user defined old vimrc into config-dir
-		oldVimrcFile := path.Join(configDir, "__old_config.vimrc")
-		saveConfig(oldVimrcFile, oldVimrcBuf)
+		if oldVimrcBuf.Len() > 0 {
+			oldVimrcFile := path.Join(configDir, "_old_config.vimrc")
+			saveConfig(oldVimrcFile, oldVimrcBuf, true, true)
+		}
 		// save prebuilt-included vim configs except common.vimrc
-		for _confPath, confData := range _bindata {
+		for _confPath, _func := range _bindata {
 			fn := path.Base(_confPath)
-			if fn == "_common.vimrc" {
+			if fn == "common.vimrc" {
 				continue
 			}
-			saveConfig(path.Join(configDir, fn), confData)
+			if asset, err := _func(); err != nil {
+				continue
+			} else {
+				saveConfig(path.Join(configDir, fn), asset.bytes, false, false)
+			}
 		}
 	} else {
 		// save common and prebuilt-included vim configs
-		for _confPath, confData := range _bindata {
+		for _confPath, _func := range _bindata {
 			confPath := path.Join(configDir, path.Base(_confPath))
-			saveConfig(confPath, confData)
+			if asset, err := _func(); err != nil {
+				continue
+			} else {
+				saveConfig(confPath, asset.bytes, false, false)
+			}
 		}
 	}
 
 	return installPluginsByConfigs(vimrcBuf, vimrcPath, configDir, bundleDir)
 }
 
-func saveConfig(_path string, _data interface{}) bool {
+func saveConfig(_path string, _data interface{}, force, backup bool) bool {
+	if dry.FileExists(_path) {
+		if backup {
+			os.Rename(_path, path.Join(path.Dir(_path), "."+path.Base(_path)))
+		}
+		if force {
+			os.Remove(_path)
+		} else {
+			return true
+		}
+	}
 	if data, ok := _data.(*bytes.Buffer); ok {
 		var file *os.File
 		var err error
-		if dry.FileExists(_path) {
-			file, err = os.Open(_path)
-		} else {
-			file, err = os.Create(_path)
-		}
+		file, err = os.Create(_path)
 		if err != nil {
 			return false
 		}
+		defer file.Close()
 
 		w := bufio.NewWriter(file)
+		w.Reset(file)
 		io.Copy(w, data)
 		if err := w.Flush(); err != nil {
 			return false
@@ -160,6 +182,7 @@ func saveConfig(_path string, _data interface{}) bool {
 }
 
 func installPathogen(installPath string) error {
+	fmt.Println("Install pathogen")
 	if resp, err := http.Get(_PATHOGEN_VIM_URL); err != nil {
 		return err
 	} else {
@@ -176,16 +199,37 @@ func installPathogen(installPath string) error {
 	return nil
 }
 
-var _INSTALL_SCRIPT_BEGIN_PATTERN = regexp.MustCompile("\\s*\"\\s+run-script\\s*(?:\\(([^\\)]*)\\)|)")
-var _INSTALL_SCRIPT_END_PATTERN = regexp.MustCompile("\\s*\"\\s+end-script")
+var _INSTALL_SCRIPT_BEGIN_PATTERN = regexp.MustCompile("\\s*\"\\s+@run\\-script\\s*(?:\\(([^\\)]*)\\)|)")
+var _INSTALL_SCRIPT_END_PATTERN = regexp.MustCompile("\\s*\"\\s+@end\\-script")
 var _INSTALL_SCRIPT_LINE_PATTERN = regexp.MustCompile("\\s*\"(.*)")
-var _INSTALL_PLUGIN_PATTERN = regexp.MustCompile("\\s*\"\\s+require-plugin\\s*:\\s*(.*)")
+var _INSTALL_PLUGIN_PATTERN = regexp.MustCompile("\\s*\"\\s+@require(\\-plugin|)\\s*:\\s*(.*)")
+
+func _writeVimSource(vimrcBuf *bytes.Buffer, configfile string) {
+	if u, err := user.Current(); err == nil {
+		if strings.HasPrefix(configfile, u.HomeDir) {
+			configfile = "~/" + strings.TrimLeft(configfile, u.HomeDir)
+		}
+	}
+	sourcefrom := "so " + configfile + "\n"
+	vimrcBuf.WriteString(sourcefrom)
+}
 
 func installPluginsByConfigs(vimrcBuf *bytes.Buffer, vimrcPath, configDir, bundleDir string) error {
 	fl, err := dry.ListDirFiles(configDir)
 	if err != nil {
 		return err
 	}
+
+	commonRc := path.Join(configDir, "common.vimrc")
+	if dry.FileExists(commonRc) {
+		_writeVimSource(vimrcBuf, commonRc)
+	} else {
+		oldVimrc := path.Join(configDir, "_old_config.vimrc")
+		if dry.FileExists(oldVimrc) {
+			_writeVimSource(vimrcBuf, oldVimrc)
+		}
+	}
+
 	for _, f := range fl {
 		if strings.HasPrefix(f, "_") {
 			continue
@@ -197,16 +241,16 @@ func installPluginsByConfigs(vimrcBuf *bytes.Buffer, vimrcPath, configDir, bundl
 			continue
 		}
 
-		relPath, err := filepath.Rel(vimrcPath, configfile)
-		if err != nil {
-			continue
-		}
-		sourcefrom := "source " + relPath + "\n"
-		if _, err := vimrcBuf.WriteString(sourcefrom); err != nil {
-			continue
-		}
+		_writeVimSource(vimrcBuf, configfile)
 	}
-	return nil
+
+	vimrcBuf.WriteString("\n")
+
+	if saveConfig(vimrcPath, vimrcBuf, true, false) {
+		return nil
+	} else {
+		return errors.New("fails to update .vimrc")
+	}
 }
 
 func installPuginByConfig(vimrcBuf *bytes.Buffer, bundleDir, configFilepath string) error {
@@ -223,15 +267,12 @@ func installPuginByConfig(vimrcBuf *bytes.Buffer, bundleDir, configFilepath stri
 
 	scriptBegin := false
 	scriptEnd := false
-	scriptExector := ""
 
 	for scanner.Scan() {
 		line := scanner.Text()
 		if _INSTALL_SCRIPT_BEGIN_PATTERN.MatchString(line) {
 			scriptBegin = true
 			scriptEnd = false
-			ss := _INSTALL_SCRIPT_BEGIN_PATTERN.FindStringSubmatch(line)
-			scriptExector = ss[1]
 			continue
 		}
 		if _INSTALL_SCRIPT_END_PATTERN.MatchString(line) {
@@ -275,11 +316,13 @@ func installPuginByConfig(vimrcBuf *bytes.Buffer, bundleDir, configFilepath stri
 		}
 		scriptFilepath := path.Join(tmpDir, tmpfile.Name())
 
-		if scriptExector == "" {
-			scriptExector = "/bin/bash"
-		}
-
-		cmd := exec.Command(scriptExector, scriptFilepath)
+		cmd := exec.Command("/bin/sh", scriptFilepath)
+		cmd.Env = append(os.Environ(),
+			"HOST_OS="+runtime.GOOS,
+			"HOST_ARCH="+runtime.GOARCH,
+			"VIMDIR="+path.Dir(bundleDir),
+			"VIMBUNDLEDIR="+bundleDir,
+		)
 		cmd.Stdin = os.Stdin
 		cmd.Stdout = os.Stdout
 		cmd.Stderr = os.Stderr

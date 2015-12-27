@@ -1,11 +1,15 @@
-" require-plugin: github.com/bling/vim-airline
+" @require: github.com/bling/vim-airline
 "
-" run-script
-"
+" @run-script
 " #!/bin/bash
-" 
-"
-" end-script
+" mkdir -p ${VIMDIR}/tmp
+" pushd ${VIMDIR}/tmp
+" git clone https://github.com/powerline/fonts.git
+" pushd fonts
+" ./install.sh
+" popd
+" popd
+" @end-script
 " 
 "
 " https://github.com/bling/vim-airline

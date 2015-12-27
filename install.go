@@ -8,6 +8,7 @@ import (
 
 	"github.com/codegangsta/cli"
 	"github.com/fatih/color"
+	"github.com/ungerik/go-dry"
 )
 
 var installCommand = cli.Command{
@@ -34,7 +35,13 @@ func installPlugin(bundleDir, url string) error {
 	if strings.HasPrefix(url, "github.com/") {
 		url = "https://" + url
 	}
-	cmd := exec.Command("git", "clone", url, installDir)
+
+	var cmd *exec.Cmd
+	if dry.FileExists() {
+		cmd = exec.Command("git", "pull")
+	} else {
+		cmd = exec.Command("git", "clone", url, installDir)
+	}
 	cmd.Stdin = os.Stdin
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
