@@ -76,7 +76,7 @@ func main() {
 	app.Run(os.Args)
 }
 
-var _PREREQUISITES = []string{"bash", "git", "vim", "wget"}
+var _PREREQUISITES = []string{"bash", "git", "vim", "wget", "cmake"}
 
 func checkBeforeRun(c *cli.Context) error {
 	preqMissing := []string{}
