@@ -52,14 +52,14 @@ After run this, you will be automatically install some vim-plugins which I prefe
 ## Install
 
 ```
-go get github.com/karfield/vim-plugin-setup
+go get -u github.com/karfield/vim-plugin-setup
 ```
 
 ### If you want to modify/add your vimrc conf, follows this:
 
 ```
 
-go get github.com/jteeuwen/go-bindata
+go get -u github.com/jteeuwen/go-bindata
 
 cd ~/.go/src/github.com/karfield/vim-plugin-setup/vim-configs
 
