@@ -186,7 +186,7 @@ func (app *_appContext) installPlugin(url string) error {
 			app.info("Cloning", url)
 			cmd = exec.Command("git", "clone", url, installDir)
 		}
-		cmd.Dir = installDir
+		cmd.Dir = app.bundleDir
 		cmd.Stdin = os.Stdin
 		if app.enableDebug {
 			cmd.Stdout = os.Stdout
