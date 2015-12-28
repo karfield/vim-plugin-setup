@@ -4,6 +4,7 @@
 // vim-configs/common.vimrc
 // vim-configs/copy_n_paste.vimrc
 // vim-configs/go.vimrc
+// vim-configs/nerdtree.vimrc
 // vim-configs/netrw.vimrc
 // vim-configs/reopen.vimrc
 // vim-configs/tagbar.vimrc
@@ -153,6 +154,26 @@ func vimConfigsGoVimrc() (*asset, error) {
 	}
 
 	info := bindataFileInfo{name: "vim-configs/go.vimrc", size: 1650, mode: os.FileMode(436), modTime: time.Unix(1451232650, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
+var _vimConfigsNerdtreeVimrc = []byte("\x1f\x8b\x08\x00\x00\x09\x6e\x88\x00\xff\x52\x52\x70\x28\x4a\x2d\x2c\xcd\x2c\x4a\xb5\x52\x48\xcf\x2c\xc9\x28\x4d\xd2\x4b\xce\xcf\xd5\x2f\x4e\x2e\xca\xcf\xcf\xc9\xcf\x2f\x4e\xd5\xcf\x4b\x2d\x4a\x29\x29\x4a\x4d\xe5\x52\xe2\xe2\xca\x49\x2d\x51\x48\xb7\xf2\x73\x0d\x72\x09\x01\x8a\xb8\x64\x16\x39\x16\x15\xe5\x97\xbb\x56\x14\x24\xe6\xa5\x24\x26\xe5\xa4\x2a\xd8\x2a\xa8\x3f\x9a\xb6\x43\x1d\x87\x42\xe7\xfc\x9c\x9c\xc4\x82\xe2\x4c\xb8\xca\x7d\xea\x5c\x5c\xb9\x89\x05\x0a\x36\xce\xba\x79\x76\x0a\x70\xf5\x21\xf9\xe9\xe9\x39\xa9\x36\xce\x41\x76\x5c\x80\x00\x00\x00\xff\xff\xe6\xc4\x5e\x4f\xa0\x00\x00\x00")
+
+func vimConfigsNerdtreeVimrcBytes() ([]byte, error) {
+	return bindataRead(
+		_vimConfigsNerdtreeVimrc,
+		"vim-configs/nerdtree.vimrc",
+	)
+}
+
+func vimConfigsNerdtreeVimrc() (*asset, error) {
+	bytes, err := vimConfigsNerdtreeVimrcBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "vim-configs/nerdtree.vimrc", size: 160, mode: os.FileMode(436), modTime: time.Unix(1451290057, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -333,6 +354,7 @@ var _bindata = map[string]func() (*asset, error){
 	"vim-configs/common.vimrc": vimConfigsCommonVimrc,
 	"vim-configs/copy_n_paste.vimrc": vimConfigsCopy_n_pasteVimrc,
 	"vim-configs/go.vimrc": vimConfigsGoVimrc,
+	"vim-configs/nerdtree.vimrc": vimConfigsNerdtreeVimrc,
 	"vim-configs/netrw.vimrc": vimConfigsNetrwVimrc,
 	"vim-configs/reopen.vimrc": vimConfigsReopenVimrc,
 	"vim-configs/tagbar.vimrc": vimConfigsTagbarVimrc,
@@ -386,6 +408,7 @@ var _bintree = &bintree{nil, map[string]*bintree{
 		"common.vimrc": &bintree{vimConfigsCommonVimrc, map[string]*bintree{}},
 		"copy_n_paste.vimrc": &bintree{vimConfigsCopy_n_pasteVimrc, map[string]*bintree{}},
 		"go.vimrc": &bintree{vimConfigsGoVimrc, map[string]*bintree{}},
+		"nerdtree.vimrc": &bintree{vimConfigsNerdtreeVimrc, map[string]*bintree{}},
 		"netrw.vimrc": &bintree{vimConfigsNetrwVimrc, map[string]*bintree{}},
 		"reopen.vimrc": &bintree{vimConfigsReopenVimrc, map[string]*bintree{}},
 		"tagbar.vimrc": &bintree{vimConfigsTagbarVimrc, map[string]*bintree{}},
