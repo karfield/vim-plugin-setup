@@ -179,12 +179,13 @@ func (app *_appContext) installPlugin(url string) error {
 
 	if gitflag {
 		var cmd *exec.Cmd
-		if dry.FileExists(installDir) {
+		if dry.FileIsDir(path.Join(installDir, ".git")) {
 			app.info("Updating", url)
 			cmd = exec.Command("git", "pull")
-			cmd.Dir = app.installDir
+			cmd.Dir = installDir
 		} else {
 			app.info("Cloning", url)
+			os.RemoveAll(installDir)
 			cmd = exec.Command("git", "clone", url, installDir)
 		}
 		cmd.Stdin = os.Stdin
