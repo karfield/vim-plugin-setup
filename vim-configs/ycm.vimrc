@@ -3,7 +3,7 @@
 " @run-script
 " #!/bin/bash
 " pushd ~/.vim/bundle/YouCompleteMe
-" ./install.py  --clang-completer --gocode-completer --tern-completer
+" ./install.sh  --clang-completer --gocode-completer --tern-completer
 " popd
 " @end-script
 "
