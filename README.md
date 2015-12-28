@@ -55,6 +55,23 @@ After run this, you will be automatically install some vim-plugins which I prefe
 go get github.com/karfield/vim-plugin-setup
 ```
 
+### If you want to modify/add your vimrc conf, follows this:
+
+```
+
+go get github.com/jteeuwen/go-bindata
+
+cd ~/.go/src/github.com/karfield/vim-plugin-setup/vim-configs
+
+# edit/add .vimrc here
+
+cd ..
+go-bindata vim-configs # convert assets into go code
+
+go install github.com/karfield/vim-plugin-setup
+
+```
+
 ## Usage
 
 ```
