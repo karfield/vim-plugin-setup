@@ -182,11 +182,11 @@ func (app *_appContext) installPlugin(url string) error {
 		if dry.FileExists(installDir) {
 			app.info("Updating", url)
 			cmd = exec.Command("git", "pull")
+			cmd.Dir = app.installDir
 		} else {
 			app.info("Cloning", url)
 			cmd = exec.Command("git", "clone", url, installDir)
 		}
-		cmd.Dir = app.bundleDir
 		cmd.Stdin = os.Stdin
 		if app.enableDebug {
 			cmd.Stdout = os.Stdout
