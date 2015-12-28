@@ -59,7 +59,7 @@ go get -u github.com/karfield/vim-plugin-setup
 
 ```
 
-go get -u github.com/jteeuwen/go-bindata
+go get -u github.com/jteeuwen/go-bindata/...
 
 cd ~/.go/src/github.com/karfield/vim-plugin-setup/vim-configs
 
