@@ -195,7 +195,7 @@ func (app *_appContext) installPlugin(url string) error {
 
 		if err := cmd.Run(); err != nil {
 			// cannot access to the git
-			info.err("Unable to sync:", url)
+			app.err("Unable to sync:", url)
 			return err
 		}
 
