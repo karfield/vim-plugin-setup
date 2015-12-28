@@ -2,8 +2,9 @@
 "
 " @run-script
 " #!/bin/bash
-" cd ~/.vim/bundle/YouCompleteMe
+" pushd ~/.vim/bundle/YouCompleteMe
 " ./install.py  --clang-completer --gocode-completer --tern-completer
+" popd
 " @end-script
 "
 

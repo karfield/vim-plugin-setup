@@ -118,7 +118,7 @@ func (app *_appContext) setupVimPlugins(c *cli.Context) error {
 	})
 
 	pathogenVim := path.Join(app.autoloadDir, "pathogen.vim")
-	if !dry.FileExists(pathogenVim) {
+	if !dry.FileExists(pathogenVim) || app.forceUpdate {
 		if err := app.installPathogen(pathogenVim); err != nil {
 			app.fatal("Install pathogen.vim failed")
 			return err
@@ -140,7 +140,7 @@ func (app *_appContext) setupVimPlugins(c *cli.Context) error {
 				continue
 			} else {
 				app.info("save pre-configured vimrc file: ", fn)
-				saveConfig(path.Join(app.configDir, fn), asset.bytes, false, false)
+				saveConfig(path.Join(app.configDir, fn), asset.bytes, false || app.forceUpdate, false)
 			}
 		}
 	} else {
@@ -151,7 +151,7 @@ func (app *_appContext) setupVimPlugins(c *cli.Context) error {
 				continue
 			} else {
 				app.info("save pre-configured vimrc file: ", path.Base(_confPath))
-				saveConfig(confPath, asset.bytes, false, false)
+				saveConfig(confPath, asset.bytes, false || app.forceUpdate, false)
 			}
 		}
 	}
@@ -321,7 +321,7 @@ func (app *_appContext) installPluginByConfig(configFilepath string) error {
 	return nil
 }
 
-func (app *_appContext) runScript(installScript *bytes.Buffer, scriptName string) error {
+func (app *_appContext) runScript(installScript *bytes.Buffer, configName string) error {
 	defer installScript.Reset()
 	if installScript.Len() > 0 {
 
@@ -335,9 +335,9 @@ func (app *_appContext) runScript(installScript *bytes.Buffer, scriptName string
 		}
 
 		cksum := fmt.Sprintf("%x", md5.Sum(installScript.Bytes()))
-		scriptName = scriptName + "@" + cksum
-		if !app.getBoolState("runflag:" + scriptName) {
-			app.info("run script ...")
+		scriptName := configName + "@" + cksum
+		if !app.getBoolState("script:"+scriptName) || app.forceUpdate {
+			app.info("run script inside \"%s\"...", configName)
 			if app.enableDebug {
 				app.println(installScript.String())
 			}
@@ -346,19 +346,20 @@ func (app *_appContext) runScript(installScript *bytes.Buffer, scriptName string
 				"HOST_OS="+runtime.GOOS,
 				"HOST_ARCH="+runtime.GOARCH,
 				"VIMDIR="+path.Dir(app.bundleDir),
-				"VIMBUNDLEDIR="+app.bundleDir,
 			)
 			cmd.Stdin = os.Stdin
-			if app.verboseFlag {
+			if app.enableDebug {
 				cmd.Stdout = os.Stdout
 				cmd.Stderr = os.Stderr
 			}
 			if err := cmd.Run(); err != nil {
 				app.err("run script failed (%s)", err)
+				app.setState("script:"+scriptName, false)
+				return err
 			} else {
 				app.success("run script successfully")
+				app.setState("script:"+scriptName, true)
 			}
-			app.setState("runflag:"+scriptName, true)
 		}
 	}
 	return nil

@@ -26,6 +26,7 @@ type _appContext struct {
 	generatedVimrc bool
 	verboseFlag    bool
 	enableDebug    bool
+	forceUpdate    bool
 	states         map[string]interface{}
 }
 
@@ -51,6 +52,10 @@ func main() {
 			Name:  "vimrc, rc",
 			Usage: "change .vimrc path",
 			Value: path.Join(_user.HomeDir, ".vimrc"),
+		},
+		cli.BoolFlag{
+			Name:  "force,f",
+			Usage: "force to update",
 		},
 		cli.BoolFlag{
 			Name:  "verbose",
@@ -97,6 +102,7 @@ func checkBeforeRun(c *cli.Context) error {
 	_app.states = make(map[string]interface{})
 	_app.verboseFlag = !c.GlobalBool("verbose")
 	_app.enableDebug = c.GlobalBool("debug")
+	_app.forceUpdate = c.GlobalBool("force")
 
 	return _app.setupVimPlugins(c)
 }
